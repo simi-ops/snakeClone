@@ -7,11 +7,12 @@ A classic Snake game implemented in Python using Pygame.
 - 800x600 pixel game window with a black background
 - Snake movement in four directions using arrow keys
 - Food spawns at random positions
-- Score tracking and display
+- Random special rewards that give bonus points
+- Score tracking and display with persistent high score board
 - Game over when snake hits wall or itself
 - Increasing difficulty (speed) as score gets higher
 - Pause functionality (Spacebar)
-- Sound effects for eating food and game over
+- Sound effects for eating food, collecting rewards, and game over
 
 ## Controls
 
@@ -20,6 +21,8 @@ A classic Snake game implemented in Python using Pygame.
 - M: Toggle sound on/off
 - R: Restart game after game over
 - Q: Quit game after game over
+- H: Save high score (when eligible)
+- S: View scoreboard
 
 ## Requirements
 
