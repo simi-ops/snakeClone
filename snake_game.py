@@ -2,6 +2,7 @@ import pygame
 import random
 import sys
 import time
+import os
 from pygame import mixer
 
 # Initialize pygame
@@ -22,6 +23,7 @@ GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
 DARK_GREEN = (0, 200, 0)
+YELLOW = (255, 255, 0)
 
 # Direction constants
 UP = (0, -1)
@@ -34,23 +36,28 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Classic Snake Game")
 clock = pygame.time.Clock()
 
+# Sound settings
+sound_enabled = True
+
 # Load sounds
 try:
     eat_sound = mixer.Sound('sounds/eat.wav')
     game_over_sound = mixer.Sound('sounds/game_over.wav')
+    sound_files_exist = True
 except:
     # Create a directory for sounds if it doesn't exist
-    import os
     if not os.path.exists('sounds'):
         os.makedirs('sounds')
     
     # Create placeholder sounds
     eat_sound = mixer.Sound(buffer=bytearray(100))
     game_over_sound = mixer.Sound(buffer=bytearray(100))
+    sound_files_exist = False
     print("Sound files not found. Using placeholder sounds.")
 
 # Font setup
 font = pygame.font.SysFont('arial', 25)
+small_font = pygame.font.SysFont('arial', 20)
 large_font = pygame.font.SysFont('arial', 50)
 
 class Snake:
@@ -79,17 +86,17 @@ class Snake:
         x, y = self.direction
         
         # Calculate new head position
-        new_x = (current[0] + x) % GRID_WIDTH
-        new_y = (current[1] + y) % GRID_HEIGHT
+        new_x = (current[0] + x)
+        new_y = (current[1] + y)
         new_position = (new_x, new_y)
-        
-        # Check for self collision
-        if new_position in self.positions[1:]:
-            return False  # Game over
         
         # Check for wall collision
         if (new_x < 0 or new_x >= GRID_WIDTH or 
             new_y < 0 or new_y >= GRID_HEIGHT):
+            return False  # Game over
+        
+        # Check for self collision
+        if new_position in self.positions[1:]:
             return False  # Game over
         
         # Move snake
@@ -138,9 +145,25 @@ class Food:
         pygame.draw.rect(surface, self.color, rect)
         pygame.draw.rect(surface, BLACK, rect, 1)  # Border
 
+def play_sound(sound):
+    """Play sound if sounds are enabled"""
+    if sound_enabled:
+        sound.play()
+
 def draw_score(surface, score):
+    """Draw score and sound status"""
     score_text = font.render(f'Score: {score}', True, WHITE)
     surface.blit(score_text, (10, 10))
+    
+    # Draw sound status
+    sound_status = "Sound: ON" if sound_enabled else "Sound: OFF"
+    sound_color = GREEN if sound_enabled else RED
+    sound_text = small_font.render(sound_status, True, sound_color)
+    surface.blit(sound_text, (WIDTH - sound_text.get_width() - 10, 10))
+    
+    # Draw sound toggle instruction
+    toggle_text = small_font.render("Press 'M' to toggle sound", True, WHITE)
+    surface.blit(toggle_text, (WIDTH - toggle_text.get_width() - 10, 35))
 
 def draw_game_over(surface, score):
     game_over_text = large_font.render('GAME OVER', True, WHITE)
@@ -152,6 +175,8 @@ def draw_game_over(surface, score):
     surface.blit(restart_text, (WIDTH//2 - restart_text.get_width()//2, HEIGHT//2 + 50))
 
 def main():
+    global sound_enabled
+    
     snake = Snake()
     food = Food()
     
@@ -185,6 +210,9 @@ def main():
                         snake.change_direction(RIGHT)
                     elif event.key == pygame.K_SPACE:
                         paused = not paused
+                    elif event.key == pygame.K_m:
+                        # Toggle sound
+                        sound_enabled = not sound_enabled
         
         # Clear screen
         screen.fill(BLACK)
@@ -193,13 +221,13 @@ def main():
             # Update snake position
             if not snake.update():
                 game_over = True
-                game_over_sound.play()
+                play_sound(game_over_sound)
             
             # Check if snake ate food
             if snake.get_head_position() == food.position:
                 snake.length += 1
                 snake.score += 10
-                eat_sound.play()
+                play_sound(eat_sound)
                 
                 # Increase speed every 50 points
                 if snake.score % 50 == 0:

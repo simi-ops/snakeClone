@@ -17,6 +17,7 @@ A classic Snake game implemented in Python using Pygame.
 
 - Arrow keys: Control snake direction
 - Spacebar: Pause/Resume game
+- M: Toggle sound on/off
 - R: Restart game after game over
 - Q: Quit game after game over
 
