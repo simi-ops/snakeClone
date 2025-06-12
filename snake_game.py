@@ -3,6 +3,7 @@ import random
 import sys
 import time
 import os
+import math
 from pygame import mixer
 
 # Initialize pygame
@@ -24,6 +25,9 @@ RED = (255, 0, 0)
 BLUE = (0, 0, 255)
 DARK_GREEN = (0, 200, 0)
 YELLOW = (255, 255, 0)
+PURPLE = (200, 0, 255)
+GOLD = (255, 215, 0)
+CYAN = (0, 255, 255)
 
 # Direction constants
 UP = (0, -1)
@@ -43,6 +47,7 @@ sound_enabled = True
 try:
     eat_sound = mixer.Sound('sounds/eat.wav')
     game_over_sound = mixer.Sound('sounds/game_over.wav')
+    reward_sound = mixer.Sound('sounds/reward.wav')  # New sound for special rewards
     sound_files_exist = True
 except:
     # Create a directory for sounds if it doesn't exist
@@ -52,6 +57,7 @@ except:
     # Create placeholder sounds
     eat_sound = mixer.Sound(buffer=bytearray(100))
     game_over_sound = mixer.Sound(buffer=bytearray(100))
+    reward_sound = mixer.Sound(buffer=bytearray(100))
     sound_files_exist = False
     print("Sound files not found. Using placeholder sounds.")
 
@@ -152,6 +158,88 @@ class Food:
         pygame.draw.circle(surface, (255, 150, 150), (center_x, center_y), radius + 3)  # Outer glow
         pygame.draw.circle(surface, self.color, (center_x, center_y), radius)  # Main food
 
+class Reward:
+    def __init__(self):
+        self.position = (0, 0)
+        self.active = False
+        self.timer = 0
+        self.duration = 100  # How long the reward stays on screen (in frames)
+        self.points = 0
+        self.type = 0
+        self.color = GOLD
+    
+    def activate(self, snake_positions):
+        """Activate a new random reward"""
+        self.active = True
+        self.timer = self.duration
+        
+        # Randomize reward type (0-2)
+        self.type = random.randint(0, 2)
+        
+        # Set reward properties based on type
+        if self.type == 0:  # Gold reward (30 points)
+            self.points = 30
+            self.color = GOLD
+        elif self.type == 1:  # Purple reward (50 points)
+            self.points = 50
+            self.color = PURPLE
+        else:  # Cyan reward (100 points)
+            self.points = 100
+            self.color = CYAN
+        
+        # Randomize position (not on snake)
+        self.randomize_position(snake_positions)
+    
+    def randomize_position(self, snake_positions):
+        """Randomize the reward position (not on snake)"""
+        while True:
+            self.position = (
+                random.randint(0, GRID_WIDTH - 1),
+                random.randint(0, GRID_HEIGHT - 1)
+            )
+            if self.position not in snake_positions:
+                break
+    
+    def update(self):
+        """Update reward timer"""
+        if self.active:
+            self.timer -= 1
+            if self.timer <= 0:
+                self.active = False
+    
+    def render(self, surface):
+        """Render the reward if active"""
+        if not self.active:
+            return
+            
+        # Calculate center position
+        center_x = self.position[0] * GRID_SIZE + GRID_SIZE // 2
+        center_y = self.position[1] * GRID_SIZE + GRID_SIZE // 2
+        
+        # Make the reward pulsate for visual effect
+        pulse = abs(math.sin(pygame.time.get_ticks() * 0.01)) * 5
+        radius = (GRID_SIZE // 2 - 4) + pulse
+        
+        # Draw reward with a star-like shape
+        points = []
+        for i in range(10):
+            angle = 2 * math.pi * i / 10
+            r = radius if i % 2 == 0 else radius * 0.5
+            x = center_x + r * math.cos(angle)
+            y = center_y + r * math.sin(angle)
+            points.append((x, y))
+        
+        # Draw the star shape
+        pygame.draw.polygon(surface, self.color, points)
+        
+        # Draw a pulsating glow
+        glow_radius = radius + 5 + pulse
+        pygame.draw.circle(surface, self.color, (center_x, center_y), glow_radius, 2)
+        
+        # Draw points value
+        value_text = small_font.render(f"+{self.points}", True, WHITE)
+        surface.blit(value_text, (center_x - value_text.get_width()//2, center_y - value_text.get_height()//2))
+
 def play_sound(sound):
     """Play sound if sounds are enabled"""
     if sound_enabled:
@@ -181,15 +269,26 @@ def draw_game_over(surface, score):
     surface.blit(score_text, (WIDTH//2 - score_text.get_width()//2, HEIGHT//2))
     surface.blit(restart_text, (WIDTH//2 - restart_text.get_width()//2, HEIGHT//2 + 50))
 
+def show_reward_notification(surface, points):
+    """Show a temporary notification when a reward is collected"""
+    notification_text = font.render(f"BONUS! +{points} points!", True, GOLD)
+    surface.blit(notification_text, (WIDTH//2 - notification_text.get_width()//2, 50))
+
 def main():
     global sound_enabled
     
     snake = Snake()
     food = Food()
+    reward = Reward()
     
     running = True
     game_over = False
     paused = False
+    
+    # Variables for reward spawning
+    reward_chance = 0.005  # 0.5% chance per frame to spawn a reward
+    reward_notification_timer = 0
+    reward_points = 0
     
     while running:
         for event in pygame.event.get():
@@ -203,7 +302,9 @@ def main():
                         # Restart game
                         snake.reset()
                         food.randomize_position()
+                        reward.active = False
                         game_over = False
+                        reward_notification_timer = 0
                     elif event.key == pygame.K_q:
                         running = False
                 else:
@@ -245,11 +346,36 @@ def main():
                     food.randomize_position()
                     if food.position not in snake.positions:
                         break
+            
+            # Check if snake ate a reward
+            if reward.active and snake.get_head_position() == reward.position:
+                snake.score += reward.points
+                reward_points = reward.points
+                reward_notification_timer = 60  # Show notification for 60 frames
+                play_sound(reward_sound)
+                reward.active = False
+            
+            # Update reward
+            reward.update()
+            
+            # Random chance to spawn a reward if none is active
+            if not reward.active and random.random() < reward_chance:
+                reward.activate(snake.positions)
+            
+            # Update reward notification timer
+            if reward_notification_timer > 0:
+                reward_notification_timer -= 1
         
         # Draw everything
         snake.render(screen)
         food.render(screen)
+        if reward.active:
+            reward.render(screen)
         draw_score(screen, snake.score)
+        
+        # Show reward notification if timer is active
+        if reward_notification_timer > 0:
+            show_reward_notification(screen, reward_points)
         
         if game_over:
             draw_game_over(screen, snake.score)
