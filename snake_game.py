@@ -11,10 +11,10 @@ mixer.init()
 
 # Constants
 WIDTH, HEIGHT = 800, 600
-GRID_SIZE = 20
+GRID_SIZE = 30  # Increased from 20 to 30 for bigger blocks
 GRID_WIDTH = WIDTH // GRID_SIZE
 GRID_HEIGHT = HEIGHT // GRID_SIZE
-FPS = 10  # Starting game speed
+FPS = 8  # Slightly reduced speed to compensate for larger blocks
 
 # Colors
 BLACK = (0, 0, 0)
@@ -110,13 +110,19 @@ class Snake:
         for i, p in enumerate(self.positions):
             # Draw each segment
             color = DARK_GREEN if i == 0 else self.color  # Head is darker
+            
+            # Create slightly smaller rectangle for better visual separation
+            margin = 2  # Small margin for visual separation between segments
             rect = pygame.Rect(
-                p[0] * GRID_SIZE, 
-                p[1] * GRID_SIZE, 
-                GRID_SIZE, GRID_SIZE
+                p[0] * GRID_SIZE + margin, 
+                p[1] * GRID_SIZE + margin, 
+                GRID_SIZE - (margin * 2), 
+                GRID_SIZE - (margin * 2)
             )
-            pygame.draw.rect(surface, color, rect)
-            pygame.draw.rect(surface, BLACK, rect, 1)  # Border
+            
+            # Draw rounded rectangle for snake segments
+            pygame.draw.rect(surface, color, rect, border_radius=8)
+            pygame.draw.rect(surface, BLACK, rect, 1, border_radius=8)  # Border
     
     def change_direction(self, direction):
         # Prevent reversing direction
@@ -137,13 +143,14 @@ class Food:
         )
     
     def render(self, surface):
-        rect = pygame.Rect(
-            self.position[0] * GRID_SIZE,
-            self.position[1] * GRID_SIZE,
-            GRID_SIZE, GRID_SIZE
-        )
-        pygame.draw.rect(surface, self.color, rect)
-        pygame.draw.rect(surface, BLACK, rect, 1)  # Border
+        # Draw food as a circle for visual distinction from snake
+        center_x = self.position[0] * GRID_SIZE + GRID_SIZE // 2
+        center_y = self.position[1] * GRID_SIZE + GRID_SIZE // 2
+        radius = GRID_SIZE // 2 - 2  # Slightly smaller than grid cell
+        
+        # Draw food with a glow effect
+        pygame.draw.circle(surface, (255, 150, 150), (center_x, center_y), radius + 3)  # Outer glow
+        pygame.draw.circle(surface, self.color, (center_x, center_y), radius)  # Main food
 
 def play_sound(sound):
     """Play sound if sounds are enabled"""
